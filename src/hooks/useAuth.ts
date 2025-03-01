@@ -4,29 +4,30 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
-import {
+import type {
   Session,
   User,
   AuthError,
-  PostgrestError,
+  SignUpWithPasswordCredentials,
 } from "@supabase/supabase-js";
-
-type AuthState = {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  error: Error | AuthError | PostgrestError | null;
-};
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export type UserMetadata = {
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
   role?: string;
 };
 
 type AuthResult<T> = {
   data: T | null;
+  error: AuthError | PostgrestError | Error | null;
+};
+
+type AuthState = {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
   error: AuthError | PostgrestError | Error | null;
 };
 
@@ -55,10 +56,9 @@ export function useAuth() {
           error: error || null,
         });
       } catch (error) {
-        console.error("Error getting session:", error);
         setAuthState((prev) => ({
           ...prev,
-          error: error instanceof Error ? error : new Error("Unknown error"),
+          error: error as Error,
           loading: false,
         }));
       }
@@ -69,7 +69,6 @@ export function useAuth() {
     // Suscribirse a cambios de autenticación
     const { data: authListener } = supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state changed:", event);
         setAuthState({
           user: session?.user || null,
           session,
@@ -112,7 +111,9 @@ export function useAuth() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setAuthState({
         user: data.user,
@@ -123,97 +124,91 @@ export function useAuth() {
 
       return { data, error: null };
     } catch (error) {
-      console.error("Sign in error:", error);
-
-      const typedError =
-        error instanceof Error ? error : new Error("Unknown error");
-
       setAuthState((prev) => ({
         ...prev,
-        error: typedError,
+        error: error as AuthError,
         loading: false,
       }));
-
-      return { data: null, error: typedError };
+      return {
+        data: null,
+        error: error as AuthError,
+      };
     }
   };
-
-  // Define un tipo para los datos de usuario
-  interface UserMetadata {
-    first_name: string;
-    last_name: string;
-    phone?: string;
-    role: "customer" | "organizer" | "admin";
-  }
 
   const signUp = async (
     email: string,
     password: string,
     userData: UserMetadata
-  ) => {
+  ): Promise<AuthResult<{ user: User | null; session: Session | null }>> => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      // Registro del usuario
-      const { data, error } = await supabaseClient.auth.signUp({
+      // Prepare signup credentials
+      const signUpData: SignUpWithPasswordCredentials = {
         email,
         password,
         options: {
-          data: userData,
+          data: {
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone,
+            role: userData.role || "customer",
+          },
         },
-      });
+      };
 
-      if (error) throw error;
+      const { data, error } = await supabaseClient.auth.signUp(signUpData);
 
-      // Comprobamos que el usuario se creó correctamente
+      if (error) {
+        throw error;
+      }
+
+      // Create profile in profiles table
       if (data.user) {
-        console.log("Usuario creado con ID:", data.user.id);
-
-        // Creamos el perfil en la tabla profiles
         const { error: profileError } = await supabaseClient
           .from("profiles")
           .upsert({
             id: data.user.id,
-            email: email, // Añadimos el email que faltaba
             first_name: userData.first_name,
             last_name: userData.last_name,
             phone: userData.phone || null,
-            role: userData.role,
-            updated_at: new Date().toISOString(),
+            role: userData.role || "customer",
           });
 
         if (profileError) {
-          console.error("Error al crear perfil:", profileError);
-          throw new Error(
-            `Error al crear perfil: ${JSON.stringify(profileError)}`
-          );
+          throw profileError;
         }
-
-        setAuthState({
-          user: data.user,
-          session: data.session,
-          loading: false,
-          error: null,
-        });
-
-        return data;
       }
+
+      setAuthState({
+        user: data.user,
+        session: data.session,
+        loading: false,
+        error: null,
+      });
+
+      return { data, error: null };
     } catch (error) {
-      console.error("Error en registro:", error);
       setAuthState((prev) => ({
         ...prev,
-        error: error as Error,
+        error: error as AuthError | PostgrestError,
         loading: false,
       }));
-      throw error;
+      return {
+        data: null,
+        error: error as AuthError | PostgrestError,
+      };
     }
   };
 
-  const signOut = async (): Promise<{ error: Error | AuthError | null }> => {
+  const signOut = async () => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const { error } = await supabaseClient.auth.signOut();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setAuthState({
         user: null,
@@ -225,22 +220,14 @@ export function useAuth() {
       router.push("/");
       return { error: null };
     } catch (error) {
-      console.error("Sign out error:", error);
-
-      const typedError =
-        error instanceof AuthError
-          ? error
-          : error instanceof Error
-          ? error
-          : new Error("Unknown error during signout");
-
       setAuthState((prev) => ({
         ...prev,
-        error: typedError,
+        error: error as AuthError,
         loading: false,
       }));
-
-      return { error: typedError };
+      return {
+        error: error as AuthError,
+      };
     }
   };
 

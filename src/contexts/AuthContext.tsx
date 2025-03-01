@@ -3,19 +3,9 @@
 
 import { createContext, useContext, ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  Session,
-  User,
-  AuthError,
-  PostgrestError,
-} from "@supabase/supabase-js";
-
-type UserMetadata = {
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
-  role?: string;
-};
+import type { Session, User, AuthError } from "@supabase/supabase-js";
+import type { PostgrestError } from "@supabase/supabase-js";
+import type { UserMetadata } from "@/hooks/useAuth";
 
 type AuthResult<T> = {
   data: T | null;
