@@ -1,36 +1,33 @@
-// src/components/auth/LoginForm.tsx - ajustes importantes
-'use client';
+// src/components/auth/LoginForm.tsx - corregido
+"use client";
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/Button';
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/Button";
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { signIn, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const redirectUrl = searchParams.get("redirect") || "/dashboard";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
+
     try {
       await signIn(email, password);
       router.push(redirectUrl);
     } catch (error) {
-      setError('Credenciales incorrectas. Por favor, inténtalo de nuevo.');
-      console.error('Error de login:', error);
+      setError("Credenciales incorrectas. Por favor, inténtalo de nuevo.");
+      console.error("Error de login:", error);
     }
   };
-
-  // ... resto del código
-}
 
   return (
     <div className="max-w-md w-full mx-auto p-6 bg-white rounded-lg shadow-md">

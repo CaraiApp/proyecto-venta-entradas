@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+}
+
 export function RegisterForm() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
     email: "",
@@ -15,12 +24,13 @@ export function RegisterForm() {
     confirmPassword: "",
     phone: "",
   });
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+
+  const [error, setError] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string>("");
   const { signUp, loading } = useAuth();
   const router = useRouter();
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -28,7 +38,7 @@ export function RegisterForm() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccessMessage("");
@@ -63,7 +73,9 @@ export function RegisterForm() {
     } catch (error) {
       console.error("Error de registro:", error);
       setError(
-        error.message || "Error al registrar. Por favor, inténtalo de nuevo."
+        error instanceof Error
+          ? error.message
+          : "Error al registrar. Por favor, inténtalo de nuevo."
       );
     }
   };

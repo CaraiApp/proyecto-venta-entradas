@@ -113,27 +113,40 @@ export function useAuth() {
   const signUp = async (email: string, password: string, userData: any) => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const { data, error } = await supabaseClient.auth.signUp({
+      // Primero, registrar al usuario en la autenticación
+      const { data, error: authError } = await supabaseClient.auth.signUp({
         email,
         password,
         options: {
-          data: userData,
-        },
-      });
-
-      if (error) throw error;
-
-      // Crear perfil de usuario
-      if (data.user) {
-        const { error: profileError } = await supabaseClient
-          .from("profiles")
-          .upsert({
-            id: data.user.id,
+          data: {
             first_name: userData.first_name,
             last_name: userData.last_name,
             phone: userData.phone,
-            role: "customer",
-          });
+            role: userData.role || "customer",
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      // Si el registro es exitoso, crear el perfil
+      if (data.user) {
+        const { error: profileError } = await supabaseClient
+          .from("profiles")
+          .upsert(
+            {
+              id: data.user.id,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              phone: userData.phone,
+              role: userData.role || "customer",
+              email: email,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "id",
+            }
+          );
 
         if (profileError) throw profileError;
       }
@@ -147,6 +160,7 @@ export function useAuth() {
 
       return data;
     } catch (error) {
+      console.error("Full signup error:", error);
       setAuthState((prev) => ({
         ...prev,
         error: error as Error,
