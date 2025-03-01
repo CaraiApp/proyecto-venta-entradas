@@ -1,11 +1,11 @@
-// src/components/auth/LoginForm.tsx - corregido
 "use client";
 
-import { useState } from "react";
+import { useState, ChangeEvent, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
+import { AuthError } from "@supabase/supabase-js";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -16,16 +16,24 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/dashboard";
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
     try {
-      await signIn(email, password);
+      const result = await signIn(email, password);
+      if (result.error) {
+        throw result.error;
+      }
       router.push(redirectUrl);
     } catch (error) {
-      setError("Credenciales incorrectas. Por favor, inténtalo de nuevo.");
       console.error("Error de login:", error);
+      const errorMessage =
+        error instanceof AuthError
+          ? error.message
+          : "Credenciales incorrectas. Por favor, inténtalo de nuevo.";
+
+      setError(errorMessage);
     }
   };
 
@@ -54,7 +62,9 @@ export function LoginForm() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setEmail(e.target.value)
+            }
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
@@ -71,7 +81,9 @@ export function LoginForm() {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 
+// Define la interfaz para el estado del formulario
 interface FormData {
   firstName: string;
   lastName: string;
@@ -24,15 +25,14 @@ export function RegisterForm() {
     confirmPassword: "",
     phone: "",
   });
-
-  const [error, setError] = useState<string>("");
-  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const { signUp, loading } = useAuth();
   const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData((prev: FormData) => ({
       ...prev,
       [name]: value,
     }));
