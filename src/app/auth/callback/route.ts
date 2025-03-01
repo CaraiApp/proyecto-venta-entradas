@@ -7,13 +7,22 @@ import type { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
 
   if (code) {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    await supabase.auth.exchangeCodeForSession(code);
+
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      // Redirigir al dashboard o página de verificación
+      return NextResponse.redirect(`${origin}/dashboard`);
+    }
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin + "/dashboard");
+  // Si hay un error, redirigir a la página de login
+  return NextResponse.redirect(
+    `${origin}/auth/login?error=verification_failed`
+  );
 }

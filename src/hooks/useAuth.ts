@@ -4,31 +4,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
-import type {
-  Session,
-  User,
-  AuthError,
-  SignUpWithPasswordCredentials,
-} from "@supabase/supabase-js";
-import type { PostgrestError } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
+import { AuthResult } from "@/contexts/AuthContext";
 
-export type UserMetadata = {
+// Tipo para los datos de registro de usuario
+type UserRegistrationData = {
   first_name: string;
   last_name: string;
-  phone?: string;
-  role?: string;
-};
-
-type AuthResult<T> = {
-  data: T | null;
-  error: AuthError | PostgrestError | Error | null;
+  phone: string;
+  role: string;
 };
 
 type AuthState = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  error: AuthError | PostgrestError | Error | null;
+  error: Error | null;
 };
 
 export function useAuth() {
@@ -58,7 +49,7 @@ export function useAuth() {
       } catch (error) {
         setAuthState((prev) => ({
           ...prev,
-          error: error as Error,
+          error: error instanceof Error ? error : new Error(String(error)),
           loading: false,
         }));
       }
@@ -111,9 +102,7 @@ export function useAuth() {
         password,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setAuthState({
         user: data.user,
@@ -124,46 +113,36 @@ export function useAuth() {
 
       return { data, error: null };
     } catch (error) {
+      const processedError =
+        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: error as AuthError,
+        error: processedError,
         loading: false,
       }));
-      return {
-        data: null,
-        error: error as AuthError,
-      };
+      return { data: null, error: processedError };
     }
   };
 
   const signUp = async (
     email: string,
     password: string,
-    userData: UserMetadata
+    userData: UserRegistrationData
   ): Promise<AuthResult<{ user: User | null; session: Session | null }>> => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      // Prepare signup credentials
-      const signUpData: SignUpWithPasswordCredentials = {
+      const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            phone: userData.phone,
-            role: userData.role || "customer",
-          },
+          data: userData,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-      };
+      });
 
-      const { data, error } = await supabaseClient.auth.signUp(signUpData);
+      if (error) throw error;
 
-      if (error) {
-        throw error;
-      }
-
-      // Create profile in profiles table
+      // Crear perfil de usuario
       if (data.user) {
         const { error: profileError } = await supabaseClient
           .from("profiles")
@@ -171,13 +150,11 @@ export function useAuth() {
             id: data.user.id,
             first_name: userData.first_name,
             last_name: userData.last_name,
-            phone: userData.phone || null,
-            role: userData.role || "customer",
+            phone: userData.phone,
+            role: userData.role,
           });
 
-        if (profileError) {
-          throw profileError;
-        }
+        if (profileError) throw profileError;
       }
 
       setAuthState({
@@ -189,15 +166,14 @@ export function useAuth() {
 
       return { data, error: null };
     } catch (error) {
+      const processedError =
+        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: error as AuthError | PostgrestError,
+        error: processedError,
         loading: false,
       }));
-      return {
-        data: null,
-        error: error as AuthError | PostgrestError,
-      };
+      return { data: null, error: processedError };
     }
   };
 
@@ -206,9 +182,7 @@ export function useAuth() {
     try {
       const { error } = await supabaseClient.auth.signOut();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setAuthState({
         user: null,
@@ -218,16 +192,15 @@ export function useAuth() {
       });
 
       router.push("/");
-      return { error: null };
     } catch (error) {
+      const processedError =
+        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: error as AuthError,
+        error: processedError,
         loading: false,
       }));
-      return {
-        error: error as AuthError,
-      };
+      throw processedError;
     }
   };
 

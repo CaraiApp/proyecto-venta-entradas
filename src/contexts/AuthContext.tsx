@@ -1,22 +1,28 @@
 // src/contexts/AuthContext.tsx
 "use client";
-
 import { createContext, useContext, ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import type { Session, User, AuthError } from "@supabase/supabase-js";
-import type { PostgrestError } from "@supabase/supabase-js";
-import type { UserMetadata } from "@/hooks/useAuth";
+import { Session, User } from "@supabase/supabase-js";
 
-type AuthResult<T> = {
+// Define un tipo más preciso para el resultado de autenticación
+export type AuthResult<T> = {
   data: T | null;
-  error: AuthError | PostgrestError | Error | null;
+  error: Error | null;
+};
+
+// Tipo para los datos de registro de usuario
+type UserRegistrationData = {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  role: string;
 };
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  error: Error | AuthError | PostgrestError | null;
+  error: Error | null;
   signIn: (
     email: string,
     password: string
@@ -24,16 +30,15 @@ type AuthContextType = {
   signUp: (
     email: string,
     password: string,
-    userData: UserMetadata
+    userData: UserRegistrationData
   ) => Promise<AuthResult<{ user: User | null; session: Session | null }>>;
-  signOut: () => Promise<{ error: Error | AuthError | null }>;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
