@@ -40,11 +40,35 @@ export function useAuth() {
           error,
         } = await supabaseClient.auth.getSession();
 
+        if (error) {
+          throw error;
+        }
+
+        // Si hay sesión, obtener información adicional del perfil
+        let profileData = null;
+        if (session?.user) {
+          const { data: profile, error: profileError } = await supabaseClient
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+          } else {
+            // Combinar metadata de usuario con datos del perfil
+            session.user.user_metadata = {
+              ...session.user.user_metadata,
+              ...profile,
+            };
+          }
+        }
+
         setAuthState({
           user: session?.user || null,
           session,
           loading: false,
-          error: error || null,
+          error: null,
         });
       } catch (error) {
         setAuthState((prev) => ({
@@ -60,16 +84,29 @@ export function useAuth() {
     // Suscribirse a cambios de autenticación
     const { data: authListener } = supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
-        setAuthState({
-          user: session?.user || null,
-          session,
-          loading: false,
-          error: null,
-        });
+        let updatedUser = session?.user;
 
-        // Si el usuario acaba de iniciar sesión, actualizar su último acceso
+        // Obtener información adicional del perfil si es un inicio de sesión
         if (event === "SIGNED_IN" && session?.user) {
           try {
+            const { data: profile } = await supabaseClient
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
+
+            if (profile) {
+              // Combinar metadata de usuario con datos del perfil
+              updatedUser = {
+                ...session.user,
+                user_metadata: {
+                  ...session.user.user_metadata,
+                  ...profile,
+                },
+              };
+            }
+
+            // Actualizar último inicio de sesión
             await supabaseClient.from("profiles").upsert(
               {
                 id: session.user.id,
@@ -80,9 +117,16 @@ export function useAuth() {
               }
             );
           } catch (error) {
-            console.error("Error updating last login:", error);
+            console.error("Error updating profile or last login:", error);
           }
         }
+
+        setAuthState({
+          user: updatedUser || null,
+          session,
+          loading: false,
+          error: null,
+        });
       }
     );
 

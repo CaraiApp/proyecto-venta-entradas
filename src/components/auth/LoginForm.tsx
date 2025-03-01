@@ -16,24 +16,23 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/dashboard";
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
       const result = await signIn(email, password);
-      if (result.error) {
-        throw result.error;
-      }
-      router.push(redirectUrl);
-    } catch (error) {
-      console.error("Error de login:", error);
-      const errorMessage =
-        error instanceof AuthError
-          ? error.message
-          : "Credenciales incorrectas. Por favor, inténtalo de nuevo.";
 
-      setError(errorMessage);
+      if (result.error) {
+        setError(result.error.message || "Error de inicio de sesión");
+        return;
+      }
+
+      // Redirigir a la URL original o al dashboard
+      router.push(redirectUrl);
+    } catch (err) {
+      console.error("Error de login:", err);
+      setError("Credenciales incorrectas. Por favor, inténtalo de nuevo.");
     }
   };
 
@@ -62,9 +61,7 @@ export function LoginForm() {
             id="email"
             type="email"
             value={email}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setEmail(e.target.value)
-            }
+            onChange={(e) => setEmail(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
@@ -81,9 +78,7 @@ export function LoginForm() {
             id="password"
             type="password"
             value={password}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setPassword(e.target.value)
-            }
+            onChange={(e) => setPassword(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
