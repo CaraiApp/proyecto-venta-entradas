@@ -7,23 +7,57 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
+  // Verificar la sesión actual
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Verificar si la ruta requiere autenticación
-  const isAuthRoute = req.nextUrl.pathname.startsWith("/dashboard");
+  // Rutas que requieren autenticación
+  const authRoutes = [
+    "/dashboard",
+    "/checkout",
+    "/perfil",
+    "/tickets",
+    "/orders",
+  ];
 
-  if (isAuthRoute && !session) {
-    // Redirigir a login si no hay sesión
-    const redirectUrl = new URL("/auth/login", req.url);
-    redirectUrl.searchParams.set("redirect", req.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+  // Rutas de autenticación
+  const authenticationRoutes = [
+    "/auth/login",
+    "/auth/register",
+    "/auth/reset-password",
+  ];
+
+  const path = req.nextUrl.pathname;
+
+  // Redirigir usuarios autenticados de rutas de login/registro
+  if (session && authenticationRoutes.some((route) => path.startsWith(route))) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  // Redirigir usuarios no autenticados de rutas protegidas
+  if (!session && authRoutes.some((route) => path.startsWith(route))) {
+    const loginUrl = new URL("/auth/login", req.url);
+    loginUrl.searchParams.set("redirect", path);
+    return NextResponse.redirect(loginUrl);
   }
 
   return res;
 }
 
+// Configurar qué rutas serán manejadas por el middleware
 export const config = {
-  matcher: ["/dashboard/:path*", "/checkout/:path*"],
+  matcher: [
+    // Rutas protegidas
+    "/dashboard/:path*",
+    "/checkout/:path*",
+    "/perfil/:path*",
+    "/tickets/:path*",
+    "/orders/:path*",
+
+    // Rutas de autenticación
+    "/auth/login",
+    "/auth/register",
+    "/auth/reset-password",
+  ],
 };
