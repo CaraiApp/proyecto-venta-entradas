@@ -4,8 +4,19 @@ import { notFound, redirect } from "next/navigation";
 import { OrganizationForm } from "@/components/admin/OrganizationForm";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Metadata } from "next";
 
-export async function generateMetadata({ params }) {
+// Definir una interfaz para los parámetros
+interface PageParams {
+  params: {
+    id: string;
+  };
+}
+
+// Metadata generada de forma segura
+export async function generateMetadata({
+  params,
+}: PageParams): Promise<Metadata> {
   const supabase = createServerSupabaseClient();
   const { data: organization } = await supabase
     .from("organizations")
@@ -24,11 +35,7 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function EditOrganizationPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EditOrganizationPage({ params }: PageParams) {
   const supabase = createServerSupabaseClient();
 
   // Verificar permisos - solo admin puede editar organizaciones

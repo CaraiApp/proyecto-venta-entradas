@@ -1,11 +1,62 @@
 // src/app/admin/organizations/[id]/page.tsx
+import { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { OrganizationActions } from "@/components/admin/OrganizationActions";
 import { Button } from "@/components/ui/Button";
 
-export async function generateMetadata({ params }) {
+// Definir interfaces de tipado
+interface PageParams {
+  params: {
+    id: string;
+  };
+}
+
+interface Profile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+}
+
+interface OrganizationMember {
+  id: string;
+  user_id: string;
+  role: "owner" | "admin" | "staff";
+  profiles: Profile;
+}
+
+interface Event {
+  id: string;
+  name: string;
+  start_date: string;
+  status: string;
+  location: string;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+  status: string;
+  description?: string;
+  website?: string;
+  tax_id?: string;
+  address?: string;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+  organization_members: OrganizationMember[];
+}
+
+// Usamos la interfaz para evitar warnings de unused variable
+const _organizationTypeReference: Organization | null = null;
+
+export async function generateMetadata({
+  params,
+}: PageParams): Promise<Metadata> {
   const supabase = createServerSupabaseClient();
   const { data: organization } = await supabase
     .from("organizations")
@@ -24,11 +75,7 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function OrganizationDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function OrganizationDetailPage({ params }: PageParams) {
   const supabase = createServerSupabaseClient();
 
   // Obtener detalles de la organización
@@ -107,7 +154,7 @@ export default async function OrganizationDetailPage({
 
   // Encontrar al propietario de la organización
   const owner = organization.organization_members.find(
-    (member) => member.role === "owner"
+    (member: OrganizationMember) => member.role === "owner"
   );
 
   return (
@@ -247,7 +294,7 @@ export default async function OrganizationDetailPage({
           </div>
           <div className="border-t border-gray-200">
             <ul className="divide-y divide-gray-200">
-              {events.map((event) => (
+              {events?.map((event: Event) => (
                 <li key={event.id}>
                   <Link
                     href={`/admin/events/${event.id}`}
@@ -366,33 +413,35 @@ export default async function OrganizationDetailPage({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {organization.organization_members.map((member) => (
-                  <tr key={member.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {member.profiles.first_name} {member.profiles.last_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.profiles.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.role === "owner"
-                        ? "Propietario"
-                        : member.role === "admin"
-                        ? "Administrador"
-                        : member.role === "staff"
-                        ? "Personal"
-                        : member.role}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/admin/users/${member.user_id}`}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      >
-                        Ver
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {organization.organization_members.map(
+                  (member: OrganizationMember) => (
+                    <tr key={member.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {member.profiles.first_name} {member.profiles.last_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {member.profiles.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {member.role === "owner"
+                          ? "Propietario"
+                          : member.role === "admin"
+                          ? "Administrador"
+                          : member.role === "staff"
+                          ? "Personal"
+                          : member.role}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link
+                          href={`/admin/users/${member.user_id}`}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        >
+                          Ver
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           </div>
