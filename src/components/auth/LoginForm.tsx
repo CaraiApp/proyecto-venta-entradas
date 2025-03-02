@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
-import { AuthError } from "@supabase/supabase-js";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
