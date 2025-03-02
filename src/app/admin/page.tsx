@@ -122,6 +122,70 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-4">
             <Link
+              href="/admin/users/create"
+              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-green-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-medium text-gray-900">
+                    Crear Usuario
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Añadir un nuevo usuario al sistema
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/organizations/create"
+              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-indigo-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-medium text-gray-900">
+                    Crear Organización
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Registrar una nueva organización en la plataforma
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
               href="/admin/organizations?status=pending"
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
