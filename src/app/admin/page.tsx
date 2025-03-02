@@ -1,14 +1,36 @@
 // src/app/admin/page.tsx
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Panel de Administración | Plataforma de Venta de Entradas",
-  description: "Panel de administración para gestionar la plataforma de venta de entradas",
+  description:
+    "Panel de administración para gestionar la plataforma de venta de entradas",
 };
 
 export default async function AdminDashboardPage() {
   const supabase = createServerSupabaseClient();
+
+  // Verificar si el usuario tiene permisos de administrador
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    redirect("/auth/login?redirect=/admin");
+  }
+
+  // Obtener el perfil del usuario para verificar si es admin
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", session.user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") {
+    redirect("/dashboard"); // Redirigir si no es admin
+  }
 
   // Obtener estadísticas
   const { data: pendingOrgs } = await supabase
@@ -16,9 +38,7 @@ export default async function AdminDashboardPage() {
     .select("id")
     .eq("status", "pending");
 
-  const { data: totalUsers } = await supabase
-    .from("profiles")
-    .select("id");
+  const { data: totalUsers } = await supabase.from("profiles").select("id");
 
   const { data: pendingEvents } = await supabase
     .from("events")
@@ -69,7 +89,8 @@ export default async function AdminDashboardPage() {
           Panel de Administración
         </h1>
         <p className="mt-2 max-w-4xl text-sm text-gray-500">
-          Bienvenido al panel de administración de la plataforma de venta de entradas.
+          Bienvenido al panel de administración de la plataforma de venta de
+          entradas.
         </p>
       </div>
 
@@ -90,7 +111,7 @@ export default async function AdminDashboardPage() {
           </Link>
         ))}
       </div>
-      
+
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Acciones rápidas */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -100,36 +121,98 @@ export default async function AdminDashboardPage() {
             </h3>
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-4">
-            <Link 
-              href="/admin/organizations?status=pending" 
+            <Link
+              href="/admin/organizations?status=pending"
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               <div className="flex items-center">
-                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                  <svg className="h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-yellow-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <h4 className="text-lg font-medium text-gray-900">Revisar Eventos</h4>
-                  <p className="text-sm text-gray-500">Aprobar eventos pendientes de revisión</p>
+                  <h4 className="text-lg font-medium text-gray-900">
+                    Aprobar Organizaciones
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Revisar y aprobar solicitudes de organizaciones
+                  </p>
                 </div>
               </div>
             </Link>
 
-            <Link 
-              href="/admin/seating-maps" 
+            <Link
+              href="/admin/events?status=pending_approval"
+              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-purple-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-medium text-gray-900">
+                    Revisar Eventos
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Aprobar eventos pendientes de revisión
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/seating-maps"
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               <div className="flex items-center">
                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <svg className="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  <svg
+                    className="h-6 w-6 text-blue-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                    />
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <h4 className="text-lg font-medium text-gray-900">Mapas de Asientos</h4>
-                  <p className="text-sm text-gray-500">Gestionar mapas de asientos de los eventos</p>
+                  <h4 className="text-lg font-medium text-gray-900">
+                    Mapas de Asientos
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Gestionar mapas de asientos de los eventos
+                  </p>
                 </div>
               </div>
             </Link>
@@ -152,7 +235,9 @@ export default async function AdminDashboardPage() {
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
                           <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-yellow-100">
-                            <span className="text-sm font-medium leading-none text-yellow-600">O</span>
+                            <span className="text-sm font-medium leading-none text-yellow-600">
+                              O
+                            </span>
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -194,21 +279,4 @@ export default async function AdminDashboardPage() {
       </div>
     </div>
   );
-} bg-yellow-100 flex items-center justify-center">
-                  <svg className="h-6 w-6 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h4 className="text-lg font-medium text-gray-900">Aprobar Organizaciones</h4>
-                  <p className="text-sm text-gray-500">Revisar y aprobar solicitudes de organizaciones</p>
-                </div>
-              </div>
-            </Link>
-            
-            <Link 
-              href="/admin/events?status=pending_approval" 
-              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              <div className="flex items-center">
-                <div className="flex-shrink-0 h-10 w-10 rounded-full
+}

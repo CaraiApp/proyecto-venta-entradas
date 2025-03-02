@@ -11,19 +11,45 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Rutas que requieren autenticación
-  const protectedRoutes = ["/dashboard", "/profile", "/checkout"];
+  // Verificar si la ruta requiere autenticación
+  const isAuthRoute =
+    req.nextUrl.pathname.startsWith("/dashboard") ||
+    req.nextUrl.pathname.startsWith("/checkout");
 
-  if (
-    protectedRoutes.some((route) => req.nextUrl.pathname.startsWith(route)) &&
-    !session
-  ) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+  // Verificar si es una ruta de admin
+  const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
+
+  if (isAuthRoute && !session) {
+    // Redirigir a login si no hay sesión
+    const redirectUrl = new URL("/auth/login", req.url);
+    redirectUrl.searchParams.set("redirect", req.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (isAdminRoute) {
+    if (!session) {
+      // Redirigir a login si no hay sesión
+      const redirectUrl = new URL("/auth/login", req.url);
+      redirectUrl.searchParams.set("redirect", req.nextUrl.pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Verificar si el usuario es admin
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+
+    if (!profile || profile.role !== "admin") {
+      // Redirigir al dashboard si no es admin
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
   }
 
   return res;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile/:path*", "/checkout/:path*"],
+  matcher: ["/dashboard/:path*", "/checkout/:path*", "/admin/:path*"],
 };
