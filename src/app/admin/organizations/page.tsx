@@ -3,6 +3,23 @@ import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
+// Interfaz para organizaciones
+interface Organization {
+  id: string;
+  name: string;
+  description: string;
+  logo_url: string | null;
+  website: string | null;
+  status: string;
+  created_at: string;
+  owner_id: string;
+  owner: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  }[]; // Ahora es un array
+}
+
 export const metadata = {
   title: "Gestión de Organizaciones | Panel de Administración",
   description:
@@ -20,10 +37,7 @@ export default async function AdminOrganizationsPage({
   const statusFilter = searchParams.status as string | undefined;
 
   // Construir la consulta base
-  let query = supabase
-    .from("organizations")
-    .select(
-      `
+  let query = supabase.from("organizations").select(`
       id,
       name,
       description,
@@ -31,18 +45,9 @@ export default async function AdminOrganizationsPage({
       website,
       status,
       created_at,
-      organization_members!inner(
-        user_id,
-        role,
-        profiles(
-          first_name,
-          last_name,
-          email
-        )
-      )
-    `
-    )
-    .eq("organization_members.role", "owner");
+      owner_id,
+      owner:profiles!owner_id(first_name, last_name, email)
+    `);
 
   // Aplicar filtro si existe
   if (statusFilter) {
@@ -142,7 +147,7 @@ export default async function AdminOrganizationsPage({
       <div className="mt-6 overflow-hidden bg-white shadow sm:rounded-md">
         <ul className="divide-y divide-gray-200">
           {organizations && organizations.length > 0 ? (
-            organizations.map((org) => (
+            (organizations as Organization[]).map((org) => (
               <li key={org.id}>
                 <Link
                   href={`/admin/organizations/${org.id}`}
@@ -168,10 +173,11 @@ export default async function AdminOrganizationsPage({
                           <p className="text-sm font-medium text-indigo-600 truncate">
                             {org.name}
                           </p>
-                          <p className="mt-1 text-sm text-gray-500 truncate">
-                            {org.organization_members[0].profiles.first_name}{" "}
-                            {org.organization_members[0].profiles.last_name}
-                          </p>
+                          {org.owner && org.owner.length > 0 && (
+                            <p className="mt-1 text-sm text-gray-500 truncate">
+                              {org.owner[0].first_name} {org.owner[0].last_name}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="ml-2 flex-shrink-0 flex">
@@ -241,7 +247,7 @@ export default async function AdminOrganizationsPage({
               <p className="mt-4 text-lg font-medium text-gray-900">
                 No hay organizaciones{" "}
                 {statusFilter
-                  ? `con estado "${getStatusText(statusFilter)}"`
+                  ? `con estado &quot;${getStatusText(statusFilter)}&quot;`
                   : ""}
               </p>
               <p className="mt-2 text-sm text-gray-500">
