@@ -2,203 +2,134 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 
-interface OrganizationFormProps {
-  isAdmin?: boolean;
-  initialData?: {
-    name?: string;
-    description?: string;
-    website?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    postal_code?: string;
-    country?: string;
-    tax_id?: string;
-  };
+interface OrganizerRegistrationData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  organizationName: string;
+  organizationCIF: string;
+  organizationAddress: string;
+  organizationCity: string;
+  organizationPostalCode: string;
 }
 
-export function OrganizationForm({
-  isAdmin = false,
-  initialData = {},
-}: OrganizationFormProps) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Datos de la organización
-  const [organizationData, setOrganizationData] = useState({
-    name: initialData.name || "",
-    description: initialData.description || "",
-    website: initialData.website || "",
-    phone: initialData.phone || "",
-    address: initialData.address || "",
-    city: initialData.city || "",
-    postal_code: initialData.postal_code || "",
-    country: initialData.country || "España",
-    tax_id: initialData.tax_id || "",
-  });
-
-  // Datos del usuario administrador de la organización (solo para registro)
-  const [userData, setUserData] = useState({
-    first_name: "",
-    last_name: "",
+export function OrganizerRegistrationForm() {
+  const [formData, setFormData] = useState<OrganizerRegistrationData>({
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
     phone: "",
+    organizationName: "",
+    organizationCIF: "",
+    organizationAddress: "",
+    organizationCity: "",
+    organizationPostalCode: "",
   });
 
-  const handleOrganizationChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
+  const router = useRouter();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setOrganizationData((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setUserData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const validateForm = () => {
+    // Basic validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return false;
+    }
+
+    if (formData.password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
+      return false;
+    }
+
+    // Add more validations as needed
+    return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
     setSuccess("");
 
+    if (!validateForm()) return;
+
+    setLoading(true);
+
     try {
-      let newOrgId: string | null = null;
-      let newUserId: string | null = null;
-
-      // Si es el admin creando una organización
-      if (isAdmin) {
-        // 1. Crear la organización
-        const { data: orgData, error: orgError } = await supabaseClient
-          .from("organizations")
-          .insert({
-            name: organizationData.name,
-            description: organizationData.description,
-            website: organizationData.website,
-            phone: organizationData.phone,
-            address: organizationData.address,
-            city: organizationData.city,
-            postal_code: organizationData.postal_code,
-            country: organizationData.country,
-            tax_id: organizationData.tax_id,
-            status: "active", // El admin activa directamente
-          })
-          .select("id")
-          .single();
-
-        if (orgError) throw orgError;
-        newOrgId = orgData.id;
-
-        setSuccess(
-          "Organización creada con éxito. Ahora puedes agregar miembros."
-        );
-
-        // Redirigir al admin a la página de detalles de la organización
-        setTimeout(() => {
-          router.push(`/admin/organizations/${newOrgId}`);
-        }, 2000);
-      }
-      // Si es un registro de organización por parte de un usuario
-      else {
-        // Validar contraseña
-        if (userData.password !== userData.confirmPassword) {
-          setError("Las contraseñas no coinciden");
-          setLoading(false);
-          return;
+      // First, create the user
+      const { data: authData, error: authError } = await signUp(
+        formData.email,
+        formData.password,
+        {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          role: "organizer",
         }
+      );
 
-        if (userData.password.length < 6) {
-          setError("La contraseña debe tener al menos 6 caracteres");
-          setLoading(false);
-          return;
-        }
+      if (authError) throw authError;
 
-        // 1. Crear la organización con estado pendiente
-        const { data: orgData, error: orgError } = await supabaseClient
-          .from("organizations")
-          .insert({
-            name: organizationData.name,
-            description: organizationData.description,
-            website: organizationData.website,
-            phone: organizationData.phone,
-            address: organizationData.address,
-            city: organizationData.city,
-            postal_code: organizationData.postal_code,
-            country: organizationData.country,
-            tax_id: organizationData.tax_id,
-            status: "pending", // Requiere aprobación del admin
-          })
-          .select("id")
-          .single();
+      // Create organization
+      const { data: orgData, error: orgError } = await supabaseClient
+        .from("organizations")
+        .insert({
+          name: formData.organizationName,
+          cif: formData.organizationCIF,
+          address: formData.organizationAddress,
+          city: formData.organizationCity,
+          postal_code: formData.organizationPostalCode,
+          status: "pending", // Admin will need to approve
+        })
+        .select();
 
-        if (orgError) throw orgError;
-        newOrgId = orgData.id;
+      if (orgError) throw orgError;
 
-        // 2. Registrar al usuario administrador de la organización
-        const { data: authData, error: authError } =
-          await supabaseClient.auth.signUp({
-            email: userData.email,
-            password: userData.password,
-            options: {
-              data: {
-                first_name: userData.first_name,
-                last_name: userData.last_name,
-                phone: userData.phone,
-                role: "organizer", // Rol de organizador
-              },
-            },
-          });
+      // Create organization member
+      const { error: memberError } = await supabaseClient
+        .from("organization_members")
+        .insert({
+          user_id: authData?.user?.id ?? undefined,
+          organization_id: orgData[0].id,
+          role: "owner",
+        });
 
-        if (authError) throw authError;
-        newUserId = authData.user?.id;
+      if (memberError) throw memberError;
 
-        if (newUserId) {
-          // 3. Crear el perfil del usuario
-          await supabaseClient.from("profiles").insert({
-            id: newUserId,
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            phone: userData.phone,
-            role: "organizer",
-          });
+      setSuccess(
+        "Registro de organizador completado. Esperando aprobación del administrador."
+      );
 
-          // 4. Vincular el usuario a la organización como administrador
-          await supabaseClient.from("organization_members").insert({
-            organization_id: newOrgId,
-            user_id: newUserId,
-            role: "admin", // Administrador de la organización
-            status: "active",
-          });
-        }
-
-        setSuccess(
-          "Solicitud de registro enviada con éxito. Un administrador revisará tu solicitud y te contactará pronto."
-        );
-
-        // Redirigir al usuario a la página de login después de un breve retraso
-        setTimeout(() => {
-          router.push("/auth/login");
-        }, 3000);
-      }
-    } catch (error: any) {
-      console.error("Error al crear organización:", error);
+      // Redirect after a brief delay
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 3000);
+    } catch (error) {
+      console.error("Error en el registro de organizador:", error);
       setError(
-        error.message ||
-          "Ha ocurrido un error al procesar la solicitud. Por favor, inténtalo de nuevo."
+        error instanceof Error
+          ? error.message
+          : "Error al registrar. Por favor, inténtalo de nuevo."
       );
     } finally {
       setLoading(false);
@@ -206,320 +137,263 @@ export function OrganizationForm({
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    <div className="max-w-lg w-full mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold text-center mb-6">
+        Registro de Organizador
+      </h2>
+
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
-          <p>{error}</p>
+        <div
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+          role="alert"
+        >
+          <span className="block sm:inline">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4">
-          <p>{success}</p>
+        <div
+          className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"
+          role="alert"
+        >
+          <span className="block sm:inline">{success}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="p-6">
-        <div className="mb-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="firstName"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Nombre
+            </label>
+            <input
+              id="firstName"
+              name="firstName"
+              type="text"
+              value={formData.firstName}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="lastName"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Apellidos
+            </label>
+            <input
+              id="lastName"
+              name="lastName"
+              type="text"
+              value={formData.lastName}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Correo Electrónico
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="phone"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Teléfono
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Contraseña
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="confirmPassword"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Confirmar Contraseña
+          </label>
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 mt-4">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Información de la organización
+            Información de la Organización
           </h3>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-4">
+            <div>
               <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700"
+                htmlFor="organizationName"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Nombre de la organización *
+                Nombre de la Organización
               </label>
               <input
+                id="organizationName"
+                name="organizationName"
                 type="text"
-                name="name"
-                id="name"
-                value={organizationData.name}
-                onChange={handleOrganizationChange}
+                value={formData.organizationName}
+                onChange={handleChange}
                 required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Descripción
-              </label>
-              <textarea
-                name="description"
-                id="description"
-                rows={3}
-                value={organizationData.description}
-                onChange={handleOrganizationChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div>
               <label
-                htmlFor="website"
-                className="block text-sm font-medium text-gray-700"
+                htmlFor="organizationCIF"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Sitio web
+                CIF/NIF
               </label>
               <input
-                type="url"
-                name="website"
-                id="website"
-                value={organizationData.website}
-                onChange={handleOrganizationChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                id="organizationCIF"
+                name="organizationCIF"
+                type="text"
+                value={formData.organizationCIF}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div>
               <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700"
+                htmlFor="organizationAddress"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Teléfono *
+                Dirección
               </label>
               <input
-                type="tel"
-                name="phone"
-                id="phone"
-                value={organizationData.phone}
-                onChange={handleOrganizationChange}
+                id="organizationAddress"
+                name="organizationAddress"
+                type="text"
+                value={formData.organizationAddress}
+                onChange={handleChange}
                 required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
-            <div className="col-span-2">
-              <label
-                htmlFor="address"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Dirección *
-              </label>
-              <input
-                type="text"
-                name="address"
-                id="address"
-                value={organizationData.address}
-                onChange={handleOrganizationChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="organizationCity"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Ciudad
+                </label>
+                <input
+                  id="organizationCity"
+                  name="organizationCity"
+                  type="text"
+                  value={formData.organizationCity}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="city"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Ciudad *
-              </label>
-              <input
-                type="text"
-                name="city"
-                id="city"
-                value={organizationData.city}
-                onChange={handleOrganizationChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="postal_code"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Código postal *
-              </label>
-              <input
-                type="text"
-                name="postal_code"
-                id="postal_code"
-                value={organizationData.postal_code}
-                onChange={handleOrganizationChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="country"
-                className="block text-sm font-medium text-gray-700"
-              >
-                País *
-              </label>
-              <input
-                type="text"
-                name="country"
-                id="country"
-                value={organizationData.country}
-                onChange={handleOrganizationChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="tax_id"
-                className="block text-sm font-medium text-gray-700"
-              >
-                CIF/NIF *
-              </label>
-              <input
-                type="text"
-                name="tax_id"
-                id="tax_id"
-                value={organizationData.tax_id}
-                onChange={handleOrganizationChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
+              <div>
+                <label
+                  htmlFor="organizationPostalCode"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Código Postal
+                </label>
+                <input
+                  id="organizationPostalCode"
+                  name="organizationPostalCode"
+                  type="text"
+                  value={formData.organizationPostalCode}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Formulario de usuario solo para registro (no para admin) */}
-        {!isAdmin && (
-          <div className="mb-6 border-t pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Información del usuario administrador
-            </h3>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="first_name"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Nombre *
-                </label>
-                <input
-                  type="text"
-                  name="first_name"
-                  id="first_name"
-                  value={userData.first_name}
-                  onChange={handleUserChange}
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="last_name"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Apellidos *
-                </label>
-                <input
-                  type="text"
-                  name="last_name"
-                  id="last_name"
-                  value={userData.last_name}
-                  onChange={handleUserChange}
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Correo electrónico *
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  id="email"
-                  value={userData.email}
-                  onChange={handleUserChange}
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  id="user_phone"
-                  value={userData.phone}
-                  onChange={handleUserChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Contraseña *
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  id="password"
-                  value={userData.password}
-                  onChange={handleUserChange}
-                  required
-                  minLength={6}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Confirmar contraseña *
-                </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  id="confirmPassword"
-                  value={userData.confirmPassword}
-                  onChange={handleUserChange}
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-end">
+        <div className="mt-4">
           <Button
             type="submit"
             variant="primary"
+            size="lg"
+            className="w-full"
             disabled={loading}
-            className="ml-3"
           >
-            {loading
-              ? "Procesando..."
-              : isAdmin
-              ? "Crear organización"
-              : "Enviar solicitud"}
+            {loading ? "Registrando..." : "Registrar Organización"}
           </Button>
         </div>
       </form>
+
+      <div className="mt-4 text-center">
+        <p className="text-sm text-gray-600">
+          ¿Ya tienes una cuenta?{" "}
+          <Link
+            href="/auth/login"
+            className="text-blue-600 hover:text-blue-500 font-medium"
+          >
+            Iniciar Sesión
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

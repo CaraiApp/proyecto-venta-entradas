@@ -5,15 +5,20 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
-import { AuthResult } from "@/contexts/AuthContext";
+
+// Tipo para el resultado de las operaciones de autenticación
+export interface AuthResult<T> {
+  data: T | null;
+  error: Error | null;
+}
 
 // Tipo para los datos de registro de usuario
-type UserRegistrationData = {
+export interface UserRegistrationData {
   first_name: string;
   last_name: string;
   phone: string;
   role: string;
-};
+}
 
 type AuthState = {
   user: User | null;
@@ -44,7 +49,7 @@ export function useAuth() {
           user: session?.user || null,
           session,
           loading: false,
-          error: error || null,
+          error: error ? new Error(error.message) : null,
         });
       } catch (error) {
         setAuthState((prev) => ({
@@ -70,17 +75,43 @@ export function useAuth() {
         // Si el usuario acaba de iniciar sesión, actualizar su último acceso
         if (event === "SIGNED_IN" && session?.user) {
           try {
-            await supabaseClient.from("profiles").upsert(
-              {
-                id: session.user.id,
-                updated_at: new Date().toISOString(),
-              },
-              {
-                onConflict: "id",
-              }
-            );
+            // Verificar si ya existe un perfil
+            const { data: existingProfile } = await supabaseClient
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
+
+            if (existingProfile) {
+              // Si existe, solo actualizar la fecha
+              await supabaseClient.from("profiles").upsert(
+                {
+                  id: session.user.id,
+                  updated_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: "id",
+                }
+              );
+            } else {
+              // Si no existe, crear uno completo
+              await supabaseClient.from("profiles").upsert(
+                {
+                  id: session.user.id,
+                  email: session.user.email,
+                  first_name: session.user.user_metadata?.first_name || "",
+                  last_name: session.user.user_metadata?.last_name || "",
+                  phone: session.user.user_metadata?.phone || "",
+                  role: session.user.user_metadata?.role || "customer",
+                  updated_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: "id",
+                }
+              );
+            }
           } catch (error) {
-            console.error("Error updating last login:", error);
+            console.error("Error updating profile after signin:", error);
           }
         }
       }
@@ -102,7 +133,9 @@ export function useAuth() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message);
+      }
 
       setAuthState({
         user: data.user,
@@ -140,7 +173,9 @@ export function useAuth() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message);
+      }
 
       // Crear perfil de usuario
       if (data.user) {
@@ -148,13 +183,16 @@ export function useAuth() {
           .from("profiles")
           .upsert({
             id: data.user.id,
+            email: email, // Incluir el email en el perfil
             first_name: userData.first_name,
             last_name: userData.last_name,
             phone: userData.phone,
             role: userData.role,
           });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          throw new Error(profileError.message);
+        }
       }
 
       setAuthState({
@@ -177,12 +215,14 @@ export function useAuth() {
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const { error } = await supabaseClient.auth.signOut();
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message);
+      }
 
       setAuthState({
         user: null,

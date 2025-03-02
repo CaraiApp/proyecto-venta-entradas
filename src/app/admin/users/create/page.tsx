@@ -1,24 +1,31 @@
-// src/app/admin/users/create/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseClient } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+
+interface UserFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: "customer" | "organizer" | "admin";
+}
 
 export default function CreateUserPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UserFormData>({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
     phone: "",
-    role: "customer", // Por defecto es cliente
+    role: "customer",
   });
 
   const handleChange = (
@@ -38,41 +45,20 @@ export default function CreateUserPage() {
     setSuccess("");
 
     try {
-      // 1. Crear usuario en Auth
-      const { data: authData, error: authError } =
-        await supabaseClient.auth.admin.createUser({
-          email: formData.email,
-          password: formData.password,
-          email_confirm: true, // Auto-confirmar el email
-          user_metadata: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            role: formData.role,
-          },
-        });
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-      if (authError) throw authError;
+      const result = await response.json();
 
-      // 2. Crear perfil en la tabla profiles
-      if (authData.user) {
-        const { error: profileError } = await supabaseClient
-          .from("profiles")
-          .insert({
-            id: authData.user.id,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            role: formData.role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
+      if (result.success) {
+        setSuccess(result.message);
 
-        if (profileError) throw profileError;
-
-        setSuccess("Usuario creado con éxito");
-
-        // Limpiar formulario después de éxito
+        // Limpiar formulario
         setFormData({
           firstName: "",
           lastName: "",
@@ -82,18 +68,16 @@ export default function CreateUserPage() {
           role: "customer",
         });
 
-        // Opcional: redirigir después de unos segundos
+        // Redirigir después de un breve tiempo
         setTimeout(() => {
           router.push("/admin/users");
         }, 2000);
+      } else {
+        setError(result.message);
       }
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Error al crear usuario:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error al crear usuario. Por favor, inténtalo de nuevo."
-      );
+      setError("Error al crear usuario. Por favor, inténtalo de nuevo.");
     } finally {
       setLoading(false);
     }

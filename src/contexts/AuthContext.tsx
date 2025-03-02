@@ -1,22 +1,9 @@
 // src/contexts/AuthContext.tsx
 "use client";
+
 import { createContext, useContext, ReactNode } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, AuthResult, UserRegistrationData } from "@/hooks/useAuth";
 import { Session, User } from "@supabase/supabase-js";
-
-// Define un tipo más preciso para el resultado de autenticación
-export type AuthResult<T> = {
-  data: T | null;
-  error: Error | null;
-};
-
-// Tipo para los datos de registro de usuario
-type UserRegistrationData = {
-  first_name: string;
-  last_name: string;
-  phone: string;
-  role: string;
-};
 
 type AuthContextType = {
   user: User | null;
@@ -39,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
