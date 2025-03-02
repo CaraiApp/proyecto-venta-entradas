@@ -1,31 +1,8 @@
 // src/hooks/useAuth.ts
-"use client";
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
-import { Session, User } from "@supabase/supabase-js";
-
-// Tipo para el resultado de las operaciones de autenticación
-export interface AuthResult<T> {
-  data: T | null;
-  error: Error | null;
-}
-
-// Tipo para los datos de registro de usuario
-export interface UserRegistrationData {
-  first_name: string;
-  last_name: string;
-  phone: string;
-  role: string;
-}
-
-type AuthState = {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  error: Error | null;
-};
+import { AuthState, UserMetadata } from "@/types";
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -49,12 +26,12 @@ export function useAuth() {
           user: session?.user || null,
           session,
           loading: false,
-          error: error ? new Error(error.message) : null,
+          error: error || null,
         });
       } catch (error) {
         setAuthState((prev) => ({
           ...prev,
-          error: error instanceof Error ? error : new Error(String(error)),
+          error: error as Error,
           loading: false,
         }));
       }
@@ -75,43 +52,17 @@ export function useAuth() {
         // Si el usuario acaba de iniciar sesión, actualizar su último acceso
         if (event === "SIGNED_IN" && session?.user) {
           try {
-            // Verificar si ya existe un perfil
-            const { data: existingProfile } = await supabaseClient
-              .from("profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
-
-            if (existingProfile) {
-              // Si existe, solo actualizar la fecha
-              await supabaseClient.from("profiles").upsert(
-                {
-                  id: session.user.id,
-                  updated_at: new Date().toISOString(),
-                },
-                {
-                  onConflict: "id",
-                }
-              );
-            } else {
-              // Si no existe, crear uno completo
-              await supabaseClient.from("profiles").upsert(
-                {
-                  id: session.user.id,
-                  email: session.user.email,
-                  first_name: session.user.user_metadata?.first_name || "",
-                  last_name: session.user.user_metadata?.last_name || "",
-                  phone: session.user.user_metadata?.phone || "",
-                  role: session.user.user_metadata?.role || "customer",
-                  updated_at: new Date().toISOString(),
-                },
-                {
-                  onConflict: "id",
-                }
-              );
-            }
+            await supabaseClient.from("profiles").upsert(
+              {
+                id: session.user.id,
+                updated_at: new Date().toISOString(),
+              },
+              {
+                onConflict: "id",
+              }
+            );
           } catch (error) {
-            console.error("Error updating profile after signin:", error);
+            console.error("Error updating last login:", error);
           }
         }
       }
@@ -122,10 +73,7 @@ export function useAuth() {
     };
   }, []);
 
-  const signIn = async (
-    email: string,
-    password: string
-  ): Promise<AuthResult<{ user: User; session: Session }>> => {
+  const signIn = async (email: string, password: string) => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -133,9 +81,7 @@ export function useAuth() {
         password,
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw error;
 
       setAuthState({
         user: data.user,
@@ -144,55 +90,99 @@ export function useAuth() {
         error: null,
       });
 
-      return { data, error: null };
+      return data;
     } catch (error) {
-      const processedError =
-        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: processedError,
+        error: error as Error,
         loading: false,
       }));
-      return { data: null, error: processedError };
+      throw error;
     }
   };
 
   const signUp = async (
     email: string,
     password: string,
-    userData: UserRegistrationData
-  ): Promise<AuthResult<{ user: User | null; session: Session | null }>> => {
+    userData: Partial<UserMetadata>,
+    organizationData?: {
+      name: string;
+      email: string;
+      phone?: string;
+      tax_id?: string;
+    }
+  ) => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
+      // 1. Registrar usuario en Auth
       const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
         options: {
           data: userData,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw error;
 
-      // Crear perfil de usuario
+      // 2. Si el registro es exitoso y tenemos un usuario
       if (data.user) {
+        const userId = data.user.id;
+
+        // 3. Si es un organizador, crear la organización
+        if (userData.role === "organizer" && organizationData) {
+          // 3.1 Crear organización
+          const { data: orgData, error: orgError } = await supabaseClient
+            .from("organizations")
+            .insert({
+              name: organizationData.name,
+              email: organizationData.email,
+              phone: organizationData.phone || null,
+              tax_id: organizationData.tax_id || null,
+              status: "pending",
+            })
+            .select()
+            .single();
+
+          if (orgError) throw orgError;
+
+          // 3.2 Crear relación entre usuario y organización
+          if (orgData) {
+            // Actualizar metadata de usuario con organization_id
+            await supabaseClient.auth.updateUser({
+              data: {
+                ...userData,
+                organization_id: orgData.id,
+              },
+            });
+
+            // Crear entrada en organization_members
+            const { error: memberError } = await supabaseClient
+              .from("organization_members")
+              .insert({
+                organization_id: orgData.id,
+                user_id: userId,
+                role: "owner",
+              });
+
+            if (memberError) throw memberError;
+          }
+        }
+
+        // 4. Crear perfil de usuario
         const { error: profileError } = await supabaseClient
           .from("profiles")
-          .upsert({
-            id: data.user.id,
-            email: email, // Incluir el email en el perfil
+          .insert({
+            id: userId,
             first_name: userData.first_name,
             last_name: userData.last_name,
-            phone: userData.phone,
+            email: email, // Añadimos el email al perfil
+            phone: userData.phone || null,
             role: userData.role,
+            organization_id: userData.organization_id || null,
           });
 
-        if (profileError) {
-          throw new Error(profileError.message);
-        }
+        if (profileError) throw profileError;
       }
 
       setAuthState({
@@ -202,27 +192,23 @@ export function useAuth() {
         error: null,
       });
 
-      return { data, error: null };
+      return data;
     } catch (error) {
-      const processedError =
-        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: processedError,
+        error: error as Error,
         loading: false,
       }));
-      return { data: null, error: processedError };
+      throw error;
     }
   };
 
-  const signOut = async (): Promise<void> => {
+  const signOut = async () => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const { error } = await supabaseClient.auth.signOut();
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw error;
 
       setAuthState({
         user: null,
@@ -233,14 +219,12 @@ export function useAuth() {
 
       router.push("/");
     } catch (error) {
-      const processedError =
-        error instanceof Error ? error : new Error(String(error));
       setAuthState((prev) => ({
         ...prev,
-        error: processedError,
+        error: error as Error,
         loading: false,
       }));
-      throw processedError;
+      throw error;
     }
   };
 

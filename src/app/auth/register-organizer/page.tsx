@@ -2,12 +2,12 @@
 import { OrganizerRegistrationForm } from "@/components/auth/OrganizerRegistrationForm";
 
 export const metadata = {
-  title: "Registro de Organizadores | Plataforma de Venta de Entradas",
+  title: "Registro de Organizador | Plataforma de Venta de Entradas",
   description:
-    "Regístrate como organizador de eventos y comienza a vender tus entradas",
+    "Crea una cuenta de organizador para gestionar eventos y vender entradas",
 };
 
-export default function OrganizerRegistrationPage() {
+export default function RegisterOrganizerPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <OrganizerRegistrationForm />
