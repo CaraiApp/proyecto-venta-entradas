@@ -8,12 +8,22 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --link-color: #2b6cb0;
+  --input-background: #ffffff;
+  --input-text-color: #4a5568;
+  --button-background: #2b6cb0;
+  --button-text-color: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --link-color: #63b3ed;
+    --input-background: #2d3748;
+    --input-text-color: #ffffff;
+    --button-background: #63b3ed;
+    --button-text-color: #000000;
   }
 }
 
@@ -21,4 +31,18 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.iniciar-sesion-button {
+  color: var(--button-text-color);
+  background-color: var(--button-background);
+}
+
+.input-field {
+  color: var(--input-text-color);
+  background-color: var(--input-background);
+}
+
+.link-text {
+  color: var(--link-color);
 }
