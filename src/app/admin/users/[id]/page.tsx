@@ -55,7 +55,8 @@ export default async function AdminUserDetailPage({
   // Obtener detalles del usuario
   const { data: user } = await supabase
     .from("profiles")
-    .select(`
+    .select(
+      `
       id, 
       first_name, 
       last_name, 
@@ -65,7 +66,8 @@ export default async function AdminUserDetailPage({
       created_at,
       updated_at,
       avatar_url
-    `)
+    `
+    )
     .eq("id", params.id)
     .single();
 
@@ -76,14 +78,16 @@ export default async function AdminUserDetailPage({
   // Obtener órdenes del usuario
   const { data: orders } = await supabase
     .from("orders")
-    .select(`
+    .select(
+      `
       id,
       order_number,
       status,
       total,
       created_at,
       events(name)
-    `)
+    `
+    )
     .eq("user_id", params.id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -91,13 +95,15 @@ export default async function AdminUserDetailPage({
   // Obtener entradas del usuario
   const { data: tickets } = await supabase
     .from("tickets")
-    .select(`
+    .select(
+      `
       id,
       ticket_number,
       status,
       orders(id),
       events(id, name, start_date)
-    `)
+    `
+    )
     .eq("orders.user_id", params.id)
     .order("events.start_date", { ascending: true })
     .limit(5);
@@ -107,10 +113,12 @@ export default async function AdminUserDetailPage({
   if (user.role === "organizer") {
     const { data: orgMember } = await supabase
       .from("organization_members")
-      .select(`
+      .select(
+        `
         role,
         organizations(id, name, status)
-      `)
+      `
+      )
       .eq("user_id", params.id)
       .single();
 
@@ -155,7 +163,8 @@ export default async function AdminUserDetailPage({
                 ) : (
                   <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
                     <span className="text-xl font-medium text-gray-500">
-                      {user.first_name?.[0]}{user.last_name?.[0]}
+                      {user.first_name?.[0]}
+                      {user.last_name?.[0]}
                     </span>
                   </div>
                 )}
@@ -215,7 +224,8 @@ export default async function AdminUserDetailPage({
                     Fecha de registro
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(user.created_at).toLocaleDateString()} {new Date(user.created_at).toLocaleTimeString()}
+                    {new Date(user.created_at).toLocaleDateString()}{" "}
+                    {new Date(user.created_at).toLocaleTimeString()}
                   </dd>
                 </div>
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -224,7 +234,9 @@ export default async function AdminUserDetailPage({
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     {user.updated_at
-                      ? `${new Date(user.updated_at).toLocaleDateString()} ${new Date(
+                      ? `${new Date(
+                          user.updated_at
+                        ).toLocaleDateString()} ${new Date(
                           user.updated_at
                         ).toLocaleTimeString()}`
                       : "No disponible"}
@@ -367,4 +379,177 @@ export default async function AdminUserDetailPage({
                   </table>
                 </div>
               ) : (
-                <div className="px-6 py-4 text
+                <div className="px-6 py-4 text-center text-sm text-gray-500">
+                  Este usuario no ha realizado ningún pedido todavía.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Entradas */}
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Entradas
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Entradas adquiridas por el usuario
+              </p>
+            </div>
+            <div className="border-t border-gray-200">
+              {tickets && tickets.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Nº Entrada
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Evento
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Fecha
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Estado
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Acción
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {tickets.map((ticket) => (
+                        <tr key={ticket.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {ticket.ticket_number}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {ticket.events.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(
+                              ticket.events.start_date
+                            ).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                ticket.status === "valid"
+                                  ? "bg-green-100 text-green-800"
+                                  : ticket.status === "used"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {ticket.status === "valid"
+                                ? "Válida"
+                                : ticket.status === "used"
+                                ? "Utilizada"
+                                : "Cancelada"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Link
+                              href={`/admin/tickets/${ticket.id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Ver
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="px-6 py-4 text-center text-sm text-gray-500">
+                  Este usuario no tiene entradas.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Acciones administrativas */}
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Acciones administrativas
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Gestión de la cuenta de usuario
+              </p>
+            </div>
+            <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Cambiar rol de usuario
+                  </h4>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      variant={user.role === "customer" ? "primary" : "outline"}
+                      size="sm"
+                      disabled={user.role === "customer"}
+                    >
+                      Cliente
+                    </Button>
+                    <Button
+                      variant={
+                        user.role === "organizer" ? "primary" : "outline"
+                      }
+                      size="sm"
+                      disabled={user.role === "organizer"}
+                    >
+                      Organizador
+                    </Button>
+                    <Button
+                      variant={user.role === "admin" ? "primary" : "outline"}
+                      size="sm"
+                      disabled={user.role === "admin"}
+                    >
+                      Administrador
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Acciones de cuenta
+                  </h4>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm">
+                      Enviar email
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Restablecer contraseña
+                    </Button>
+                    <Button variant="danger" size="sm">
+                      Suspender cuenta
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

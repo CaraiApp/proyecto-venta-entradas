@@ -1,7 +1,10 @@
+// src/components/admin/AssignAdminButton.tsx
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { supabaseClient } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 interface AssignAdminButtonProps {
   userId: string;
@@ -9,70 +12,59 @@ interface AssignAdminButtonProps {
 
 export default function AssignAdminButton({ userId }: AssignAdminButtonProps) {
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleAssignAdmin = async () => {
     if (
       !confirm(
-        "¿Estás seguro de que deseas asignar permisos de administrador a este usuario?"
+        "¿Estás seguro de que deseas convertir a este usuario en administrador? Esta acción otorga permisos completos sobre la plataforma."
       )
     ) {
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError(null);
 
     try {
-      const response = await fetch("/api/admin/assign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      });
+      // Actualizar el rol en la tabla de perfiles
+      const { error: profileError } = await supabaseClient
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", userId);
 
-      const data = await response.json();
+      if (profileError) throw profileError;
 
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Error al asignar permisos de administrador"
-        );
-      }
+      // Actualizar los metadatos del usuario en Auth
+      const { error: authError } =
+        await supabaseClient.auth.admin.updateUserById(userId, {
+          user_metadata: { role: "admin" },
+        });
 
-      setSuccess(true);
+      if (authError) throw authError;
 
-      // Recargar la página después de un breve retraso para mostrar los cambios actualizados
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Refrescar la página para mostrar los cambios
+      router.refresh();
     } catch (err) {
-      console.error("Error:", err);
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      console.error("Error al asignar rol de administrador:", err);
+      setError("No se pudo asignar el rol de administrador");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      {success ? (
-        <span className="text-sm text-green-600">¡Asignado!</span>
-      ) : (
-        <button
-          onClick={handleAssignAdmin}
-          disabled={loading}
-          className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Asignando..." : "Hacer admin"}
-        </button>
-      )}
-      {error && (
-        <div className="absolute mt-2 text-sm text-red-600 bg-red-50 p-2 rounded shadow-sm">
-          {error}
-        </div>
-      )}
-    </div>
+    <>
+      <Button
+        variant="outline"
+        size="xs"
+        onClick={handleAssignAdmin}
+        disabled={loading}
+      >
+        {loading ? "Actualizando..." : "Hacer administrador"}
+      </Button>
+      {error && <span className="text-xs text-red-500 ml-2">{error}</span>}
+    </>
   );
 }
